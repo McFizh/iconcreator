@@ -17,13 +17,16 @@ namespace IconCreator
     {
         private String selectedFile;
         private SvgDocument orig_svg;
+        private Int32 iconScaleFactor;
 
         public Form1()
         {
             InitializeComponent();
+            iconScaleFactor = 50;
+            orig_svg = null;
         }
 
-        private void onBrowseClick(object sender, EventArgs e)
+        private void onBrowseFileClick(object sender, EventArgs e)
         {
             openFileDialog1.Filter = "svg files (*.svg)|*.svg|All files (*.*)|*.*";
             openFileDialog1.FilterIndex = 1;
@@ -34,35 +37,75 @@ namespace IconCreator
                 filePathBox.Text = selectedFile;
 
                 orig_svg = SvgDocument.Open(selectedFile);
-                Bitmap bmp = orig_svg.Draw();
-                if (bmp.Height > svgPreview.MaximumSize.Height || bmp.Width > svgPreview.MaximumSize.Width)
+                drawPreview();
+            }
+        }
+
+        private void onBrowseFolderClick(object sender, EventArgs e)
+        {
+
+        }
+
+        private void onCreateClick(object sender, EventArgs e)
+        {
+
+        }
+
+        private void chooseBgColor(object sender, EventArgs e)
+        {
+            if (colorPicker.ShowDialog() == DialogResult.OK)
+            {
+                bgColorInd.BackColor = colorPicker.Color;
+                svgPreview.BackColor = bgColorInd.BackColor;
+            }
+        }
+
+        private void chooseTextColor(object sender, EventArgs e)
+        {
+
+        }
+
+        private void scaleValueChanged(object sender, EventArgs e)
+        {
+            iconScaleFactor = scaleFactor.Value;
+            drawPreview();
+        }
+
+        /* -----------------------------------------------------------------------------------------------
+         * 
+         * ----------------------------------------------------------------------------------------------- */
+        public void drawPreview()
+        {
+            if (orig_svg == null)
+                return;
+
+            Bitmap bmp = orig_svg.Draw();
+            if (bmp.Height > svgPreview.MaximumSize.Height || bmp.Width > svgPreview.MaximumSize.Width)
+            {
+                double ratio = (double)bmp.Width / (double)bmp.Height;
+                int width, height;
+                if (ratio > 1)
                 {
-                    double ratio = (double)bmp.Width / (double)bmp.Height;
-                    int width, height;
-                    if(ratio > 1)
-                    {
-                        width = svgPreview.MaximumSize.Width;
-                        height = (int)((double)svgPreview.MaximumSize.Height / ratio);
-                    } else {
-                        height = svgPreview.MaximumSize.Height;
-                        width = (int)((double)svgPreview.MaximumSize.Width * ratio);
-                    }
-
-                    width = (int)((double)width * 0.8);
-                    height = (int)((double)height * 0.8);
-
-                    bmp = ResizeImage(bmp, width, height);
+                    width = svgPreview.MaximumSize.Width;
+                    height = (int)((double)svgPreview.MaximumSize.Height / ratio);
+                }
+                else
+                {
+                    height = svgPreview.MaximumSize.Height;
+                    width = (int)((double)svgPreview.MaximumSize.Width * ratio);
                 }
 
-                svgPreview.Image = bmp;
+                width = (int)((double)width * ((double)iconScaleFactor / 100.0));
+                height = (int)((double)height * ((double)iconScaleFactor / 100.0));
 
+                bmp = ResizeImage(bmp, width, height);
             }
+
+            svgPreview.Image = bmp;
         }
 
         public static Bitmap ResizeImage(Image image, int width, int height)
         {
-
-
             var destRect = new Rectangle(0, 0, width, height);
             var destImage = new Bitmap(width, height);
 
@@ -86,17 +129,5 @@ namespace IconCreator
             return destImage;
         }
 
-        private void chooseColor(object sender, EventArgs e)
-        {
-            if (colorPicker.ShowDialog() == DialogResult.OK)
-            {
-
-            }
-        }
-
-        private void scaleValueChanged(object sender, EventArgs e)
-        {
-
-        }
     }
 }
