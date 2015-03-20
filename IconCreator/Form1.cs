@@ -6,6 +6,7 @@ using System.Data;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Drawing.Text;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -15,14 +16,17 @@ namespace IconCreator
 {
     public partial class Form1 : Form
     {
-        private String selectedFile;
+        private String  selectedFile, 
+                        selectedPath;
         private SvgDocument orig_svg;
-        private Int32 iconScaleFactor;
+        private Double icon1ScaleFactor,
+                       icon2ScaleFactor;
 
         public Form1()
         {
             InitializeComponent();
-            iconScaleFactor = 50;
+            icon1ScaleFactor = 0.5;
+            icon2ScaleFactor = 0.5;
             orig_svg = null;
         }
 
@@ -31,19 +35,24 @@ namespace IconCreator
             openFileDialog1.Filter = "svg files (*.svg)|*.svg|All files (*.*)|*.*";
             openFileDialog1.FilterIndex = 1;
 
-            if (openFileDialog1.ShowDialog() == DialogResult.OK) // Test result.
+            if (openFileDialog1.ShowDialog() == DialogResult.OK)
             {
                 selectedFile = openFileDialog1.FileName;
                 filePathBox.Text = selectedFile;
 
                 orig_svg = SvgDocument.Open(selectedFile);
-                drawPreview();
+                drawPreview(1);
+                drawPreview(2);
             }
         }
 
         private void onBrowseFolderClick(object sender, EventArgs e)
         {
-
+            if (folderBrowserDialog1.ShowDialog() == DialogResult.OK)
+            {
+                selectedPath = folderBrowserDialog1.SelectedPath;
+                folderBox.Text = selectedPath;
+            }
         }
 
         private void onCreateClick(object sender, EventArgs e)
@@ -56,52 +65,95 @@ namespace IconCreator
             if (colorPicker.ShowDialog() == DialogResult.OK)
             {
                 bgColorInd.BackColor = colorPicker.Color;
-                svgPreview.BackColor = bgColorInd.BackColor;
+                svgPreview1.BackColor = bgColorInd.BackColor;
+                svgPreview2.BackColor = bgColorInd.BackColor;
             }
         }
 
         private void chooseTextColor(object sender, EventArgs e)
         {
-
+            if (colorPicker.ShowDialog() == DialogResult.OK)
+            {
+                txtColorInd.BackColor = colorPicker.Color;
+                drawPreview(2);
+            }
         }
 
-        private void scaleValueChanged(object sender, EventArgs e)
+        private void scale1ValueChanged(object sender, EventArgs e)
         {
-            iconScaleFactor = scaleFactor.Value;
-            drawPreview();
+            icon1ScaleFactor = (double)scaleFactor1.Value / 100.0;
+            drawPreview(1);
+        }
+
+        private void scale2ValueChanged(object sender, EventArgs e)
+        {
+            icon2ScaleFactor = (double)scaleFactor2.Value / 100.0;
+            drawPreview(2);
         }
 
         /* -----------------------------------------------------------------------------------------------
          * 
          * ----------------------------------------------------------------------------------------------- */
-        public void drawPreview()
+        public void drawPreview(int prevNum)
         {
             if (orig_svg == null)
                 return;
 
+            int maxWidth, 
+                maxHeight;
+            double scaleFactor;
+
+            if(prevNum==1)
+            {
+                maxHeight = svgPreview1.MaximumSize.Height;
+                maxWidth = svgPreview1.MaximumSize.Width;
+                scaleFactor = icon1ScaleFactor;
+            } else {
+                maxHeight = svgPreview2.MaximumSize.Height;
+                maxWidth = svgPreview2.MaximumSize.Width;
+                scaleFactor = icon2ScaleFactor;
+            }
+
             Bitmap bmp = orig_svg.Draw();
-            if (bmp.Height > svgPreview.MaximumSize.Height || bmp.Width > svgPreview.MaximumSize.Width)
+            if ( bmp.Height > maxHeight || bmp.Width > maxWidth )
             {
                 double ratio = (double)bmp.Width / (double)bmp.Height;
                 int width, height;
                 if (ratio > 1)
                 {
-                    width = svgPreview.MaximumSize.Width;
-                    height = (int)((double)svgPreview.MaximumSize.Height / ratio);
+                    width = maxWidth;
+                    height = (int)((double)maxHeight / ratio);
                 }
                 else
                 {
-                    height = svgPreview.MaximumSize.Height;
-                    width = (int)((double)svgPreview.MaximumSize.Width * ratio);
+                    height = maxHeight;
+                    width = (int)((double)maxWidth * ratio);
                 }
 
-                width = (int)((double)width * ((double)iconScaleFactor / 100.0));
-                height = (int)((double)height * ((double)iconScaleFactor / 100.0));
+                width = (int)((double)width * scaleFactor );
+                height = (int)((double)height * scaleFactor );
 
                 bmp = ResizeImage(bmp, width, height);
+                if (prevNum == 2)
+                    drawText(bmp);
             }
 
-            svgPreview.Image = bmp;
+            //
+            if(prevNum==1)  svgPreview1.Image = bmp;
+            else            svgPreview2.Image = bmp;
+        }
+
+        public void drawText(Bitmap src)
+        {
+            using (var graphics = Graphics.FromImage(src))
+            {
+                Font txtFont = new Font("Segoe UI", 16);
+                SolidBrush txtColor = new SolidBrush(txtColorInd.BackColor);
+                PointF txtPlace = new PointF(10.0F, 10.0F);
+
+                graphics.TextRenderingHint = TextRenderingHint.AntiAlias;
+                graphics.DrawString(appName.Text, txtFont, txtColor, txtPlace);
+            }
         }
 
         public static Bitmap ResizeImage(Image image, int width, int height)
