@@ -6,11 +6,11 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("IconCreator")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("Create Windows 8.1 and WP8.1 icons from svg file with almost one click.")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Hewlett-Packard")]
+[assembly: AssemblyCompany("Pekka Harjamäki")]
 [assembly: AssemblyProduct("IconCreator")]
-[assembly: AssemblyCopyright("Copyright © Hewlett-Packard 2015")]
+[assembly: AssemblyCopyright("Copyright © Pekka Harjamäki")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

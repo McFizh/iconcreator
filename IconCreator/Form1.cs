@@ -7,6 +7,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -18,18 +19,33 @@ namespace IconCreator
     {
         private String  selectedFile, 
                         selectedPath;
-        private SvgDocument orig_svg;
+
+        private SvgDocument svg;
+        private Bitmap svg_bmp;
+
+        private Color tmp_color;
+
         private Double icon1ScaleFactor,
                        icon2ScaleFactor;
 
+        /* -----------------------------------------------------------------------------------------------
+         * 
+         * ----------------------------------------------------------------------------------------------- */
         public Form1()
         {
             InitializeComponent();
             icon1ScaleFactor = 0.5;
             icon2ScaleFactor = 0.5;
-            orig_svg = null;
+            svg = null;
+            svg_bmp = null;
+
+            scaleLabel1.Text = "Scale object: " + icon1ScaleFactor.ToString();
+            scaleLabel2.Text = "Scale object: " + icon2ScaleFactor.ToString();
         }
 
+        /* -----------------------------------------------------------------------------------------------
+         * 
+         * ----------------------------------------------------------------------------------------------- */
         private void onBrowseFileClick(object sender, EventArgs e)
         {
             openFileDialog1.Filter = "svg files (*.svg)|*.svg|All files (*.*)|*.*";
@@ -40,9 +56,11 @@ namespace IconCreator
                 selectedFile = openFileDialog1.FileName;
                 filePathBox.Text = selectedFile;
 
-                orig_svg = SvgDocument.Open(selectedFile);
-                drawPreview(1);
-                drawPreview(2);
+                svg = SvgDocument.Open(selectedFile);
+                svg_bmp = svg.Draw();
+
+                drawPreview1();
+                drawPreview2();
             }
         }
 
@@ -57,7 +75,86 @@ namespace IconCreator
 
         private void onCreateClick(object sender, EventArgs e)
         {
+            // Basic checks
+            if (!wp81_checkbox.Checked && !w81_checkbox.Checked)
+            {
+                MessageBox.Show("Please select export targets", "Icon Creator", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                return;
+            }
 
+            if(selectedFile == null || svg == null || svg_bmp == null)
+            {
+                MessageBox.Show("Invalid SVG file", "Icon Creator", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                return;
+            }
+
+            if (selectedPath == null || selectedPath.Length == 0)
+            {
+                MessageBox.Show("Please select export folder", "Icon Creator", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                return;
+            }
+
+            //
+            if ( !Directory.Exists(selectedPath) )
+            {
+                MessageBox.Show("Invalid export directory", "Icon Creator", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                return;
+            }
+
+            //
+            int[,] wp81_icons = new int[4, 2] { { 106, 106 }, { 120, 120 }, { 170, 170 }, {300,300} };
+            int[,] wp81_tiles = new int[2,3] { { 1, 360, 360 } , {2, 744, 360 } };
+
+            int[,] w81_icons = new int[4, 2] { {54, 54} , { 90,90 } , { 126, 126 }, {270,270} };
+            int[,] w81_tiles = new int[2, 3] { { 1, 558, 558 }, { 2, 558, 270 } };
+
+            //
+            if(wp81_checkbox.Checked)
+            {
+                for (int l1 = 0; l1 < wp81_icons.GetLength(0); l1++)
+                {
+                    Bitmap icon = createIcon(1, wp81_icons[l1,0], wp81_icons[l1,1], icon1ScaleFactor);
+                    icon.Save(selectedPath+"\\wp81-icon-" + wp81_icons[l1, 0].ToString()+"px.png", ImageFormat.Png);
+                }
+
+                for (int l1 = 0; l1 < wp81_tiles.GetLength(0); l1++)
+                {
+                        Bitmap icon = createIcon(2, wp81_tiles[l1, 1], wp81_tiles[l1, 2], icon2ScaleFactor);
+                        icon.Save(selectedPath + "\\wp81-tile-" + wp81_tiles[l1, 1].ToString() + "x" + wp81_tiles[l1, 2].ToString() + "px.png", ImageFormat.Png);
+                }
+            }
+
+            if(w81_checkbox.Checked)
+            {
+                for (int l1 = 0; l1 < w81_icons.GetLength(0); l1++)
+                {
+                    Bitmap icon = createIcon(1, w81_icons[l1,0], w81_icons[l1,1], icon1ScaleFactor);
+                    icon.Save(selectedPath + "\\w81-icon-" + w81_icons[l1, 0].ToString() + "px.png", ImageFormat.Png);
+                }
+
+                for (int l1 = 0; l1 < w81_tiles.GetLength(0); l1++)
+                {
+                        Bitmap icon = createIcon(2, w81_tiles[l1, 1], w81_tiles[l1, 2], icon2ScaleFactor);
+                        icon.Save(selectedPath + "\\w81-tile-" + w81_tiles[l1, 1].ToString() + "x" + w81_tiles[l1, 2].ToString() + "px.png", ImageFormat.Png);
+                }
+            }
+
+            MessageBox.Show("All done", "Icon Creator", MessageBoxButtons.OK);
+        }
+
+        private void changeBgTransparency(object sender, EventArgs e)
+        {
+            if(transparentBg.Checked)
+            {
+                selectBgColorBtn.Enabled = false;
+                tmp_color = bgColorInd.BackColor;
+                bgColorInd.BackColor = Color.FromArgb(0x00, 0xff, 0xff, 0xff);
+            } else {
+                selectBgColorBtn.Enabled = true;
+                bgColorInd.BackColor = tmp_color;
+            }
+            drawPreview1();
+            drawPreview2();
         }
 
         private void chooseBgColor(object sender, EventArgs e)
@@ -65,8 +162,8 @@ namespace IconCreator
             if (colorPicker.ShowDialog() == DialogResult.OK)
             {
                 bgColorInd.BackColor = colorPicker.Color;
-                svgPreview1.BackColor = bgColorInd.BackColor;
-                svgPreview2.BackColor = bgColorInd.BackColor;
+                drawPreview1();
+                drawPreview2();
             }
         }
 
@@ -75,85 +172,107 @@ namespace IconCreator
             if (colorPicker.ShowDialog() == DialogResult.OK)
             {
                 txtColorInd.BackColor = colorPicker.Color;
-                drawPreview(2);
+                drawPreview2();
             }
         }
 
         private void scale1ValueChanged(object sender, EventArgs e)
         {
             icon1ScaleFactor = (double)scaleFactor1.Value / 100.0;
-            drawPreview(1);
+            drawPreview1();
+            scaleLabel1.Text = "Scale object: " + icon1ScaleFactor.ToString();
         }
 
         private void scale2ValueChanged(object sender, EventArgs e)
         {
             icon2ScaleFactor = (double)scaleFactor2.Value / 100.0;
-            drawPreview(2);
+            drawPreview2();
+            scaleLabel2.Text = "Scale object: " + icon2ScaleFactor.ToString();
+        }
+
+        private void AppNameChanged(object sender, EventArgs e)
+        {
+            drawPreview2();
         }
 
         /* -----------------------------------------------------------------------------------------------
          * 
          * ----------------------------------------------------------------------------------------------- */
-        public void drawPreview(int prevNum)
+        private void quitMenuItemClick(object sender, EventArgs e)
         {
-            if (orig_svg == null)
-                return;
+            Application.Exit();
+        }
 
-            int maxWidth, 
-                maxHeight;
-            double scaleFactor;
+        private void aboutMenuItemClick(object sender, EventArgs e)
+        {
+            AboutBox box = new AboutBox();
+            box.ShowDialog();
+        }
 
-            if(prevNum==1)
+        /* -----------------------------------------------------------------------------------------------
+         * 
+         * ----------------------------------------------------------------------------------------------- */
+        public void drawPreview1()
+        {
+            svgPreview1.Image = createIcon(1, 360, 360, icon1ScaleFactor);
+        }
+
+        public void drawPreview2()
+        {
+            svgPreview2.Image = createIcon(2, 360, 360, icon2ScaleFactor);
+        }
+
+        public Bitmap createIcon(int prevNum, int iconWidth, int iconHeight, double scaleFactor)
+        {
+            //
+            if (svg == null || svg_bmp == null)
+                return null;
+
+            //
+            Bitmap tmp_bmp = svg_bmp;
+            double maxsize = Math.Min(iconHeight, iconWidth);
+
+            //
+            if ( tmp_bmp.Height > iconHeight || tmp_bmp.Width > iconWidth )
             {
-                maxHeight = svgPreview1.MaximumSize.Height;
-                maxWidth = svgPreview1.MaximumSize.Width;
-                scaleFactor = icon1ScaleFactor;
-            } else {
-                maxHeight = svgPreview2.MaximumSize.Height;
-                maxWidth = svgPreview2.MaximumSize.Width;
-                scaleFactor = icon2ScaleFactor;
-            }
+                double ratio = (double)svg_bmp.Width / (double)svg_bmp.Height;
 
-            Bitmap bmp = orig_svg.Draw();
-            if ( bmp.Height > maxHeight || bmp.Width > maxWidth )
-            {
-                double ratio = (double)bmp.Width / (double)bmp.Height;
-                int width, height;
-                if (ratio > 1)
-                {
-                    width = maxWidth;
-                    height = (int)((double)maxHeight / ratio);
-                }
-                else
-                {
-                    height = maxHeight;
-                    width = (int)((double)maxWidth * ratio);
-                }
+                double width = ratio <= 1 ? (double)maxsize * ratio : maxsize;
+                double height = ratio > 1 ? (double)maxsize / ratio : maxsize;
 
-                width = (int)((double)width * scaleFactor );
-                height = (int)((double)height * scaleFactor );
-
-                bmp = ResizeImage(bmp, width, height);
-                if (prevNum == 2)
-                    drawText(bmp);
+                tmp_bmp = ResizeImage( svg_bmp, (int)(width * scaleFactor ), (int)(height * scaleFactor ) );
             }
 
             //
-            if(prevNum==1)  svgPreview1.Image = bmp;
-            else            svgPreview2.Image = bmp;
-        }
-
-        public void drawText(Bitmap src)
-        {
-            using (var graphics = Graphics.FromImage(src))
+            Bitmap icon = new Bitmap(iconWidth, iconHeight);
+            using (var graphics = Graphics.FromImage(icon))
             {
-                Font txtFont = new Font("Segoe UI", 16);
-                SolidBrush txtColor = new SolidBrush(txtColorInd.BackColor);
-                PointF txtPlace = new PointF(10.0F, 10.0F);
+                SolidBrush bgBrush = new SolidBrush(bgColorInd.BackColor);
+                Rectangle rect = new Rectangle(0, 0, iconWidth, iconHeight);
+                graphics.FillRectangle(bgBrush, rect);
 
-                graphics.TextRenderingHint = TextRenderingHint.AntiAlias;
-                graphics.DrawString(appName.Text, txtFont, txtColor, txtPlace);
+                int xpos = (iconWidth - tmp_bmp.Width) / 2,
+                    ypos = (iconHeight - tmp_bmp.Height) / 2;
+
+                graphics.DrawImageUnscaled(tmp_bmp, xpos, ypos);
+
+                if(prevNum == 2)
+                {
+                    int fontsize= maxsize>360 ? 34 : 22;
+
+                    Font txtFont = new Font("Segoe UI", fontsize);
+                    SolidBrush txtColor = new SolidBrush(txtColorInd.BackColor);
+
+                    Size textSize = TextRenderer.MeasureText(appName.Text, txtFont);
+                    ypos = iconHeight - textSize.Height-10;
+
+                    PointF txtPlace = new PointF(10.0F, ypos);
+                    graphics.TextRenderingHint = TextRenderingHint.AntiAlias;
+                    graphics.DrawString(appName.Text, txtFont, txtColor, txtPlace);
+                }
             }
+
+            return icon;
         }
 
         public static Bitmap ResizeImage(Image image, int width, int height)
