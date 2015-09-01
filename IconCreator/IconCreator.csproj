@@ -70,8 +70,9 @@
     <SignManifests>true</SignManifests>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Svg">
-      <HintPath>..\packages\Svg.1.7.0\lib\Svg.dll</HintPath>
+    <Reference Include="Svg, Version=2.0.0.21807, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Svg.2.0.0\lib\Svg.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -161,13 +162,13 @@
   -->
   <Target Name="AfterBuild">
     <CreateItem Include="@(ReferenceCopyLocalPaths)" Condition="'%(Extension)'=='.dll'">
-        <Output ItemName="AssembliesToMerge" TaskParameter="Include" />
+      <Output ItemName="AssembliesToMerge" TaskParameter="Include" />
     </CreateItem>
     <PropertyGroup>
       <ReferenceAssemblies>C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.5</ReferenceAssemblies>
       <ILMergePath>$(SolutionDir)packages\ilmerge.2.14.1208\tools\ILMerge.exe</ILMergePath>
     </PropertyGroup>
     <Exec Command="&quot;$(ILMergePath)&quot; /out:@(MainAssembly) /targetplatform:v4,&quot;$(ReferenceAssemblies)&quot; &quot;@(IntermediateAssembly)&quot; @(AssembliesToMerge->'&quot;%(FullPath)&quot;',' ')" />
-    <Delete Files="@(ReferenceCopyLocalPaths->'$(OutDir)%(DestinationSubDirectory)%(Filename)%(Extension)')"/>
+    <Delete Files="@(ReferenceCopyLocalPaths->'$(OutDir)%(DestinationSubDirectory)%(Filename)%(Extension)')" />
   </Target>
 </Project>
